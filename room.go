@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Densuke-fitness/GoWebSocket/trace"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,6 +20,9 @@ type room struct {
 
 	//by using map (rather than slice), we can maintain object references while consuming less memory.
 	clients map[*client]bool
+
+	//trace will recieve log excuted on chat room
+	tracer trace.Tracer
 }
 
 func (r *room) run() {
@@ -27,11 +31,14 @@ func (r *room) run() {
 		case client := <-r.join:
 			//participate
 			r.clients[client] = true
+			r.tracer.Trace("joined new client")
 		case client := <-r.leave:
 			//leave
 			delete(r.clients, client)
 			close(client.send)
+			r.tracer.Trace("client left")
 		case msg := <-r.forward:
+			r.tracer.Trace("recevied message", string(msg))
 			//send message to all client
 			for client := range r.clients {
 				select {
@@ -77,5 +84,6 @@ func newRoom() *room {
 		join:    make(chan *client),
 		leave:   make(chan *client),
 		clients: make(map[*client]bool),
+		tracer:  trace.Off(),
 	}
 }
